@@ -4,6 +4,10 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 
 project(pyrjmcmc)
 
+# Needed for original C code to compile
+SET(CMAKE_C_FLAGS "-Wno-incompatible-pointer-types")
+SET(CMAKE_CXX_FLAGS "-Wno-incompatible-pointer-types")
+
 #find_package(PythonExtensions REQUIRED)
 find_package(pybind11 REQUIRED)
 #find_package(Cython REQUIRED)
