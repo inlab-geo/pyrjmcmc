@@ -1,4 +1,4 @@
-from pyrjmcmc._rjmcmc import (
+from anu_inversion_course._rjmcmc import (
     dataset1d_t,
     dataset1d_load_known,
     dataset1d_load_fixed,
