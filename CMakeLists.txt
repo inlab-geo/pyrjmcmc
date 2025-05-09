@@ -1,16 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(pyrjmcmc) # Project name can match the top-level directory
 
-
 # Needed for original C code to compile
 SET(CMAKE_C_FLAGS "-Wno-incompatible-pointer-types")
 SET(CMAKE_CXX_FLAGS "-Wno-incompatible-pointer-types")
-
-#find_package(PythonExtensions REQUIRED)
-find_package(pybind11 REQUIRED)
-#find_package(Cython REQUIRED)
-#find_package(NumPy REQUIRED)
-
 
 # Add proper -fPIC and MINGW handling
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -31,9 +24,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES Clang)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common}")
 endif ()
 
-
-
-find_package(PythonLibs REQUIRED)
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
 find_package(SWIG REQUIRED)
 
 include(UseSWIG)
@@ -51,24 +42,26 @@ file(GLOB RJMCMC_SOURCES
 set(SWIG_INTERFACE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig/rjmcmc.i)
 
 # Generate the wrapper code using SWIG
-SWIG_ADD_MODULE(${SWIG_MODULE_NAME} python ${SWIG_INTERFACE_FILE} ${RJMCMC_SOURCES})
+SWIG_ADD_LIBRARY(${SWIG_MODULE_NAME} LANGUAGE python SOURCES ${SWIG_INTERFACE_FILE} ${RJMCMC_SOURCES})
 
 # Include directories for your C headers and Python headers
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/include
     ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig
-    ${PYTHON_INCLUDE_DIRS}
+    ${Python_INCLUDE_DIRS}
 )
 
 # Link the generated wrapper with your C library and Python libraries
-target_link_libraries(${SWIG_MODULE_NAME} ${PYTHON_LIBRARIES})
+target_link_libraries(${SWIG_MODULE_NAME} ${Python_LIBRARIES})
 
-# Install the Python module (the compiled extension)
-install(TARGETS ${SWIG_MODULE_NAME} LIBRARY DESTINATION ${PYTHON_SITE_PACKAGES}/pyrjmcmc)
+# Install the Python module (the compiled extension) DIRECTLY into site-packages
+install(TARGETS ${SWIG_MODULE_NAME}
+    LIBRARY DESTINATION .)
 
-# Install the __init__.py file
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/__init__.py DESTINATION ${PYTHON_SITE_PACKAGES}/pyrjmcmc)
+# Install the __init__.py file into the pyrjmcmc subdirectory of site-packages
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/__init__.py
+    DESTINATION pyrjmcmc)
 
-# Install the SWIG-generated Python wrapper file
+# Install the SWIG-generated Python wrapper file into the pyrjmcmc subdirectory of site-packages
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig/rjmcmc.py
-    DESTINATION ${PYTHON_SITE_PACKAGES}/pyrjmcmc) 
+    DESTINATION pyrjmcmc)
