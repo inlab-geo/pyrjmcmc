@@ -1,6 +1,6 @@
 # pyrjmcmc
 
-Python package using a CMAKE build system for the rjmcmc package developed by Rhys Hawkins that is part of the ANU inversion course 
+Python package using a CMAKE build system for the rjmcmc package developed by Rhys Hawkins @rhyshawkins that is part of the ANU inversion course 
 available here [https://github.com/anu-ilab/ANUInversionCourse/tree/main/anu_inversion_course/rjmcmc](https://github.com/anu-ilab/ANUInversionCourse/tree/main/anu_inversion_course/rjmcmc)
 
 Notes:
