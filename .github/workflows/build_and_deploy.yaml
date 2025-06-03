@@ -33,6 +33,34 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
+          # CIBW_BEFORE_BUILD_LINUX is used to set environment variables
+          # within the Linux cibuildwheel container before the build starts.
+          # This helps CMake's FindPython module locate all necessary Python components.
+          CIBW_BEFORE_BUILD_LINUX: |
+            set -euxo pipefail # Exit immediately if a command exits with a non-zero status.
+            # Calculate PYTHON_ROOT_DIR from PYTHON_BIN provided by cibuildwheel.
+            # This is typically the parent directory of 'bin' (e.g., /opt/python/cp39-cp39).
+            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR" # For Python 3 specific FindPython calls.
+            # Explicitly set Python executable path.
+            export Python_EXECUTABLE="$PYTHON_BIN"
+            export Python3_EXECUTABLE="$PYTHON_BIN" # For Python 3 specific FindPython calls.
+            echo "DEBUG (Linux): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
+            echo "DEBUG (Linux): Python_EXECUTABLE set to: $Python_EXECUTABLE"
+          
+          # CIBW_BEFORE_BUILD_MACOS is used to set environment variables
+          # within the macOS cibuildwheel container before the build starts.
+          CIBW_BEFORE_BUILD_MACOS: |
+            set -euxo pipefail # Exit immediately if a command exits with a non-zero status.
+            # Calculate PYTHON_ROOT_DIR from PYTHON_BIN provided by cibuildwheel.
+            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
+            # Explicitly set Python executable path.
+            export Python_EXECUTABLE="$PYTHON_BIN"
+            export Python3_EXECUTABLE="$PYTHON_BIN"
+            echo "DEBUG (macOS): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
+            echo "DEBUG (macOS): Python_EXECUTABLE set to: $Python_EXECUTABLE"
+
           # Crucial: Directly pass Python include and library paths to CMake
           # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB) are provided by cibuildwheel
           # and point to the Python environment cibuildwheel sets up for the build.
