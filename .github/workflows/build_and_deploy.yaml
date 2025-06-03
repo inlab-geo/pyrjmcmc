@@ -20,7 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Setup SWIG - This step is correctly placed and configured.
       - name: Setup SWIG
         uses: mmomtchev/setup-swig@v4
         with:
@@ -29,8 +28,6 @@ jobs:
       - name: Verify SWIG
         run: swig -version
     
-      # Set up Python for cibuildwheel itself (on the host runner).
-      # cibuildwheel is a Python tool and needs a Python environment to run.
       - name: Set up Python for cibuildwheel
         uses: actions/setup-python@v5
         with:
@@ -41,29 +38,29 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # IMPORTANT: Removed CIBW_ENVIRONMENT_SCRIPT_LINUX as it seems to not be executing correctly.
-          # We're now using CIBW_BEFORE_BUILD_LINUX for environment setup.
+          # CIBW_BEFORE_BUILD_LINUX is powerful but let's simplify again
+          # if the issue is FindPython not getting correct hints from scikit-build-core.
+          # The key is to pass the explicit Python paths to CMake via CIBW_CMAKE_OPTIONS.
+          # CIBW_BEFORE_BUILD_LINUX: |
+          #   set -x
+          #   export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+          #   export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
+          #   export Python3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
+          #   export Python3_LIBRARY="$PYTHON_LIB"
+          #   echo "DEBUG: PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
+          #   echo "DEBUG: Python3_INCLUDE_DIR set to: $Python3_INCLUDE_DIR"
+          #   echo "DEBUG: Python3_LIBRARY set to: $Python3_LIBRARY"
+          #   true
 
-          # CIBW_BEFORE_BUILD_LINUX executes a shell script inside the build container
-          # right before the wheel build starts. This is a reliable place to set
-          # environment variables for CMake.
-          CIBW_BEFORE_BUILD_LINUX: |
-            set -x # Enable shell debugging to see executed commands
-            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
-            export Python3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-            export Python3_LIBRARY="$PYTHON_LIB"
-            echo "DEBUG: PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
-            echo "DEBUG: Python3_INCLUDE_DIR set to: $Python3_INCLUDE_DIR"
-            echo "DEBUG: Python3_LIBRARY set to: $Python3_LIBRARY"
-            # Add a dummy command to ensure the script doesn't exit prematurely if no other commands are needed
-            true
-
-          # CIBW_CMAKE_OPTIONS can still be used for other specific CMake flags if needed,
-          # but the Python path setting should now be handled by CIBW_BEFORE_BUILD_LINUX.
-          # CIBW_CMAKE_OPTIONS: >
-          #   -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-          #   -DPython3_LIBRARY="$PYTHON_LIB"
+          # Crucial: Directly pass Python include and library paths to CMake
+          # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB) are provided by cibuildwheel
+          # and point to the Python environment cibuildwheel sets up for the build.
+          # FindPython will explicitly use these if provided.
+          CIBW_CMAKE_OPTIONS: >
+            -DPython_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR"
+            -DPython_LIBRARIES="$PYTHON_LIB"
+            -DPython3_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR" # For Python 3 specific FindPython calls
+            -DPython3_LIBRARIES="$PYTHON_LIB" # For Python 3 specific FindPython calls
           
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           
