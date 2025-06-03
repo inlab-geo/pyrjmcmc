@@ -33,52 +33,12 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # CIBW_BEFORE_BUILD_LINUX is used to set environment variables
-          # within the Linux cibuildwheel container before the build starts.
-          # This helps CMake's FindPython module locate all necessary Python components.
-          # We now dynamically find the Python executable using 'which python'.
-          CIBW_BEFORE_BUILD_LINUX: |
-            set -exo pipefail # Exit immediately if a command exits with a non-zero status.
-            # Find the Python executable that cibuildwheel is currently using in the container.
-            PYTHON_EXE="$(which python)"
-            echo "DEBUG (Linux): Found Python executable: '$PYTHON_EXE'"
-            if [ -z "$PYTHON_EXE" ]; then
-              echo "Error: Python executable not found in PATH within the container."
-              exit 1
-            fi
-            # Calculate PYTHON_ROOT_DIR from the found Python executable.
-            # This typically involves going up two directories from the 'bin' directory.
-            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_EXE")")"
-            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR" # For Python 3 specific FindPython calls.
-            # Explicitly set Python executable path for CMake.
-            export Python_EXECUTABLE="$PYTHON_EXE"
-            export Python3_EXECUTABLE="$PYTHON_EXE" # For Python 3 specific FindPython calls.
-            echo "DEBUG (Linux): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
-            echo "DEBUG (Linux): Python_EXECUTABLE set to: $Python_EXECUTABLE"
-          
-          # CIBW_BEFORE_BUILD_MACOS is used to set environment variables
-          # within the macOS cibuildwheel container before the build starts.
-          # We now dynamically find the Python executable using 'which python'.
-          CIBW_BEFORE_BUILD_MACOS: |
-            set -exo pipefail # Exit immediately if a command exits with a non-zero status.
-            # Find the Python executable that cibuildwheel is currently using in the container.
-            PYTHON_EXE="$(which python)"
-            echo "DEBUG (macOS): Found Python executable: '$PYTHON_EXE'"
-            if [ -z "$PYTHON_EXE" ]; then
-              echo "Error: Python executable not found in PATH within the container."
-              exit 1
-            fi
-            # Calculate PYTHON_ROOT_DIR from the found Python executable.
-            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_EXE")")"
-            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
-            # Explicitly set Python executable path for CMake.
-            export Python_EXECUTABLE="$PYTHON_EXE"
-            export Python3_EXECUTABLE="$PYTHON_EXE"
-            echo "DEBUG (macOS): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
-            echo "DEBUG (macOS): Python_EXECUTABLE set to: $Python_EXECUTABLE"
+          # Removed CIBW_BEFORE_BUILD_LINUX and CIBW_BEFORE_BUILD_MACOS.
+          # We are now passing Python root directory directly to CMake via CIBW_CMAKE_OPTIONS,
+          # using variables provided by cibuildwheel.
 
-          # Crucial: Directly pass Python include and library paths to CMake
-          # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB) are provided by cibuildwheel
+          # Crucial: Directly pass Python include, library, and root paths to CMake.
+          # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB, $PYTHON_BIN) are provided by cibuildwheel
           # and point to the Python environment cibuildwheel sets up for the build.
           # FindPython will explicitly use these if provided.
           CIBW_CMAKE_OPTIONS: >
@@ -86,6 +46,8 @@ jobs:
             -DPython_LIBRARIES="$PYTHON_LIB"
             -DPython3_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR" # For Python 3 specific FindPython calls
             -DPython3_LIBRARIES="$PYTHON_LIB" # For Python 3 specific FindPython calls
+            -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")" # Explicitly set Python root
+            -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")" # Explicitly set Python 3 root
           
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           
