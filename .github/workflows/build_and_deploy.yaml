@@ -38,21 +38,29 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # CIBW_ENVIRONMENT_LINUX is still useful for general environment vars,
-          # but for CMake specifics, CIBW_CMAKE_OPTIONS is often more direct.
-          # We'll keep it for now as it doesn't hurt.
-          CIBW_ENVIRONMENT_LINUX: >
-            Python_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
-            Python3_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
+          # CIBW_ENVIRONMENT_LINUX is for simple key-value pairs.
+          # For dynamic paths using shell commands, use CIBW_ENVIRONMENT_SCRIPT.
+          # CIBW_ENVIRONMENT_LINUX: >
+          #   Python_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
+          #   Python3_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
+          
+          # Use CIBW_ENVIRONMENT_SCRIPT to correctly derive and set environment variables.
+          # This command will be executed in the shell inside the container.
+          CIBW_ENVIRONMENT_SCRIPT_LINUX: |
+            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
+            echo "PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR" # For debugging
+            # Also try setting the explicit include/library paths in case ROOT_DIR isn't enough
+            export Python3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
+            export Python3_LIBRARY="$PYTHON_LIB"
+            echo "Python3_INCLUDE_DIR set to: $Python3_INCLUDE_DIR" # For debugging
+            echo "Python3_LIBRARY set to: $Python3_LIBRARY" # For debugging
 
-          # This is the new crucial part: Pass Python include/library paths to CMake.
-          # CIBW_CMAKE_OPTIONS allows passing extra arguments directly to CMake.
-          # -DPython3_INCLUDE_DIR points to the Python C headers.
-          # -DPython3_LIBRARY points to the Python shared library.
-          # We use "$PYTHON_INCLUDE_DIR" and "$PYTHON_LIB" which are also provided by cibuildwheel.
-          CIBW_CMAKE_OPTIONS: >
-            -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-            -DPython3_LIBRARY="$PYTHON_LIB"
+          # CIBW_CMAKE_OPTIONS can still be useful for other CMake flags,
+          # but the Python path setting should now happen via ENVIRONMENT_SCRIPT
+          # CIBW_CMAKE_OPTIONS: >
+          #   -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
+          #   -DPython3_LIBRARY="$PYTHON_LIB"
           
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           
