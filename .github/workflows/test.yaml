@@ -23,7 +23,10 @@ jobs:
       - name: Setup SWIG
         uses: mmomtchev/setup-swig@v4 # Use the latest version or a specific one
         with:
-          version: 'latest'
+          branch: jse
+
+      - name: Verify
+        run: swig -version
 
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
