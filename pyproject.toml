@@ -5,3 +5,8 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "pyrjmcmc"
 version = "0.0.1"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
