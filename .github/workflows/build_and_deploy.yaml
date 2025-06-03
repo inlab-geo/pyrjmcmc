@@ -1,91 +1,118 @@
-name: Build and Test Python C/C++ Extension (CMake)
+name: Build and Deploy
 
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
-  workflow_dispatch: # Allows manual trigger
 
 jobs:
-  build-and-test:
-    # Use a matrix strategy to test on multiple OS and Python versions
-    strategy:
-      fail-fast: false # Don't cancel other jobs if one fails
-      matrix:
-        os: [ubuntu-latest, macos-latest] # Add windows-latest if you also support Windows
-        python-version: ['3.9', '3.10', '3.11'] # Test across a range of supported Python versions
-
+  build-wheel:
     runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest"]
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SWIG
+        uses: mmomtchev/setup-swig@v4
+        with:
+          branch: jse
+
+      - name: Verify SWIG
+        run: swig -version
+    
+      - name: Set up Python for cibuildwheel
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        with:
+          output-dir: wheelhouse
+        env:
+          # CIBW_BEFORE_BUILD_LINUX is powerful but let's simplify again
+          # if the issue is FindPython not getting correct hints from scikit-build-core.
+          # The key is to pass the explicit Python paths to CMake via CIBW_CMAKE_OPTIONS.
+          # CIBW_BEFORE_BUILD_LINUX: |
+          #   set -x
+          #   export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+          #   export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
+          #   export Python3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
+          #   export Python3_LIBRARY="$PYTHON_LIB"
+          #   echo "DEBUG: PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
+          #   echo "DEBUG: Python3_INCLUDE_DIR set to: $Python3_INCLUDE_DIR"
+          #   echo "DEBUG: Python3_LIBRARY set to: $Python3_LIBRARY"
+          #   true
+
+          # Crucial: Directly pass Python include and library paths to CMake
+          # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB) are provided by cibuildwheel
+          # and point to the Python environment cibuildwheel sets up for the build.
+          # FindPython will explicitly use these if provided.
+          CIBW_CMAKE_OPTIONS: >
+            -DPython_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR"
+            -DPython_LIBRARIES="$PYTHON_LIB"
+            -DPython3_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR" # For Python 3 specific FindPython calls
+            -DPython3_LIBRARIES="$PYTHON_LIB" # For Python 3 specific FindPython calls
+          
+          CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
+          
+          MACOSX_DEPLOYMENT_TARGET: 14
+
+      - name: Upload wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-wheelhouse
+          path: wheelhouse
+
+  build-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up environment
+        run: |
+          python -m pip install scikit-build-core build
+
+      - name: Build and check sdist
+        run: |
+          python -m build --sdist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*.tar.gz
+          name: sourcedist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-wheel, build-sdist]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+    environment: deployment
+    permissions:
+      id-token: write
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        submodules: true # If your project uses Git submodules
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        # cache: 'uv' # Recommended for faster builds; caches uv's cache directory
-
-    # --- UV setup ---
-    # Ensure uv is installed and on the PATH.
-    # setup-python does not install uv, so we install it here.
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH # Add uv to PATH for subsequent steps
-
-    # --- System-level Dependencies (OS-specific) ---
-    - name: Install system dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        # python3-dev is generally needed if CMake needs to find system Python headers
-        # setup-python generally provides what's needed for virtual environments,
-        # but it's a safe fallback if your CMake setup expects system headers.
-        sudo apt-get install -y cmake build-essential python3-dev
-        # Add any other Linux-specific build tools or libraries needed by your C++ code
-        # Example: sudo apt-get install -y libhdf5-dev
-
-    - name: Install system dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        # Homebrew is usually available on macOS runners
-        # Ensure CMake is installed (often pre-installed, but explicit is safer)
-        brew install cmake
-        # macOS usually has Python dev headers readily available with standard Python.
-        # No specific brew install for python-dev is usually needed for setup-python.
-        # Add any other macOS-specific build tools or libraries needed by your C++ code
-        # Example: brew install hdf5
-
-    # --- Python-level Dependencies (using uv) ---
-    - name: Install Python build and test dependencies
-      run: |
-        # 'wheel' is crucial for building Python packages.
-        # 'pytest' for running your tests.
-        # Include any other Python packages your build process requires (e.g., scikit-build-core, pybind11)
-        uv pip install wheel pytest
-        # If your project uses a build backend like scikit-build-core or py-build-cmake:
-        # uv pip install scikit-build-core # or uv pip install py-build-cmake
-        # uv pip install pybind11 # if you're using pybind11
-
-    # --- Build the Python package with the C/C++ extension ---
-    - name: Build and install Python package
-      # This step assumes your project uses a standard Python packaging
-      # mechanism (e.g., setuptools, or a modern PEP 517 backend like scikit-build-core)
-      # that triggers CMake as part of the build.
-      # `uv pip install .` will look for pyproject.toml or setup.py and execute the build.
-      run: |
-        uv pip install . --no-deps # Install the package from source into the virtual env
-      working-directory: ${{ github.workspace }} # Ensure this is the root of your repo
-
-    # --- Run Tests ---
-    - name: Run tests
-      run: |
-        uv run pytest
-      working-directory: ${{ github.workspace }}
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.3
