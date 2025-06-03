@@ -33,14 +33,11 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # Removed CIBW_BEFORE_BUILD_LINUX and CIBW_BEFORE_BUILD_MACOS.
-          # We are now passing Python root directory directly to CMake via CIBW_CMAKE_OPTIONS,
-          # using variables provided by cibuildwheel.
-
           # Crucial: Directly pass Python include, library, and root paths to CMake.
           # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB, $PYTHON_BIN) are provided by cibuildwheel
           # and point to the Python environment cibuildwheel sets up for the build.
           # FindPython will explicitly use these if provided.
+          # We also add explicit executable path and search strategy for robustness.
           CIBW_CMAKE_OPTIONS: >
             -DPython_INCLUDE_DIRS="$PYTHON_INCLUDE_DIR"
             -DPython_LIBRARIES="$PYTHON_LIB"
@@ -48,6 +45,10 @@ jobs:
             -DPython3_LIBRARIES="$PYTHON_LIB" # For Python 3 specific FindPython calls
             -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")" # Explicitly set Python root
             -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")" # Explicitly set Python 3 root
+            -DPython_EXECUTABLE="$PYTHON_BIN" # Explicitly set Python executable
+            -DPython3_EXECUTABLE="$PYTHON_BIN" # Explicitly set Python 3 executable
+            -DPython_FIND_STRATEGY=LOCATION # Tell CMake to only look in specified locations
+            -DPython_FIND_REGISTRY=NEVER # Prevent CMake from looking in Windows registry (good for Linux/macOS too)
           
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           
