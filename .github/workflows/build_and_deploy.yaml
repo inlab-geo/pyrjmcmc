@@ -41,14 +41,17 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # CIBW_BEFORE_BUILD_LINUX executes a command inside the Linux build container.
-          # The 'manylinux' containers are CentOS-based and use 'yum'.
-          # This installs the Python development headers required by CMake to find Python.
-          CIBW_BEFORE_BUILD_LINUX: "yum install -y python3-devel"
-          # CIBW_BEFORE_BUILD_MACOS: "" # Add if macOS builds need specific dependencies installed before build
-
+          # CIBW_ENVIRONMENT_LINUX allows setting environment variables for the build.
+          # We tell CMake where to find the Python installation that cibuildwheel is using.
+          # The $(dirname $(dirname "$PYTHON_BIN")) extracts the Python root
+          # (e.g., /opt/python/cp39-cp39 from /opt/python/cp39-cp39/bin/python)
+          CIBW_ENVIRONMENT_LINUX: >
+            Python_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
+            Python3_ROOT_DIR="$(dirname $(dirname "$PYTHON_BIN"))"
+          
           # CIBW_SKIP defines which Python versions/platforms to skip building.
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
+          
           # MACOSX_DEPLOYMENT_TARGET is an environment variable for cibuildwheel on macOS.
           MACOSX_DEPLOYMENT_TARGET: 14
 
