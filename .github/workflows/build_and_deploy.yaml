@@ -36,42 +36,44 @@ jobs:
           # CIBW_BEFORE_BUILD_LINUX is used to set environment variables
           # within the Linux cibuildwheel container before the build starts.
           # This helps CMake's FindPython module locate all necessary Python components.
-          # Debugging: Temporarily removed 'u' from set -euxo to allow unset variables
-          # and added explicit check for PYTHON_BIN.
+          # We now dynamically find the Python executable using 'which python'.
           CIBW_BEFORE_BUILD_LINUX: |
             set -exo pipefail # Exit immediately if a command exits with a non-zero status.
-            echo "DEBUG (Linux): Raw PYTHON_BIN: '$PYTHON_BIN'"
-            if [ -z "$PYTHON_BIN" ]; then
-              echo "Error: PYTHON_BIN is not set or is empty. Cannot proceed with path calculation."
+            # Find the Python executable that cibuildwheel is currently using in the container.
+            PYTHON_EXE="$(which python)"
+            echo "DEBUG (Linux): Found Python executable: '$PYTHON_EXE'"
+            if [ -z "$PYTHON_EXE" ]; then
+              echo "Error: Python executable not found in PATH within the container."
               exit 1
             fi
-            # Calculate PYTHON_ROOT_DIR from PYTHON_BIN provided by cibuildwheel.
-            # This is typically the parent directory of 'bin' (e.g., /opt/python/cp39-cp39).
-            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            # Calculate PYTHON_ROOT_DIR from the found Python executable.
+            # This typically involves going up two directories from the 'bin' directory.
+            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_EXE")")"
             export Python3_ROOT_DIR="$PYTHON_ROOT_DIR" # For Python 3 specific FindPython calls.
-            # Explicitly set Python executable path.
-            export Python_EXECUTABLE="$PYTHON_BIN"
-            export Python3_EXECUTABLE="$PYTHON_BIN" # For Python 3 specific FindPython calls.
+            # Explicitly set Python executable path for CMake.
+            export Python_EXECUTABLE="$PYTHON_EXE"
+            export Python3_EXECUTABLE="$PYTHON_EXE" # For Python 3 specific FindPython calls.
             echo "DEBUG (Linux): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
             echo "DEBUG (Linux): Python_EXECUTABLE set to: $Python_EXECUTABLE"
           
           # CIBW_BEFORE_BUILD_MACOS is used to set environment variables
           # within the macOS cibuildwheel container before the build starts.
-          # Debugging: Temporarily removed 'u' from set -euxo to allow unset variables
-          # and added explicit check for PYTHON_BIN.
+          # We now dynamically find the Python executable using 'which python'.
           CIBW_BEFORE_BUILD_MACOS: |
             set -exo pipefail # Exit immediately if a command exits with a non-zero status.
-            echo "DEBUG (macOS): Raw PYTHON_BIN: '$PYTHON_BIN'"
-            if [ -z "$PYTHON_BIN" ]; then
-              echo "Error: PYTHON_BIN is not set or is empty. Cannot proceed with path calculation."
+            # Find the Python executable that cibuildwheel is currently using in the container.
+            PYTHON_EXE="$(which python)"
+            echo "DEBUG (macOS): Found Python executable: '$PYTHON_EXE'"
+            if [ -z "$PYTHON_EXE" ]; then
+              echo "Error: Python executable not found in PATH within the container."
               exit 1
             fi
-            # Calculate PYTHON_ROOT_DIR from PYTHON_BIN provided by cibuildwheel.
-            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            # Calculate PYTHON_ROOT_DIR from the found Python executable.
+            export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_EXE")")"
             export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
-            # Explicitly set Python executable path.
-            export Python_EXECUTABLE="$PYTHON_BIN"
-            export Python3_EXECUTABLE="$PYTHON_BIN"
+            # Explicitly set Python executable path for CMake.
+            export Python_EXECUTABLE="$PYTHON_EXE"
+            export Python3_EXECUTABLE="$PYTHON_EXE"
             echo "DEBUG (macOS): PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
             echo "DEBUG (macOS): Python_EXECUTABLE set to: $Python_EXECUTABLE"
 
