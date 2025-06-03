@@ -5,9 +5,6 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build-wheel:
@@ -27,31 +24,15 @@ jobs:
 
       - name: Verify SWIG
         run: swig -version
-    
-      - name: Set up Python for cibuildwheel
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      
+      # Removed: actions/setup-python@v5 - cibuildwheel manages its own Python environments for builds.
+      # The runner will have a default Python sufficient to execute cibuildwheel.
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
         env:
-          # CIBW_BEFORE_BUILD_LINUX is powerful but let's simplify again
-          # if the issue is FindPython not getting correct hints from scikit-build-core.
-          # The key is to pass the explicit Python paths to CMake via CIBW_CMAKE_OPTIONS.
-          # CIBW_BEFORE_BUILD_LINUX: |
-          #   set -x
-          #   export PYTHON_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-          #   export Python3_ROOT_DIR="$PYTHON_ROOT_DIR"
-          #   export Python3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-          #   export Python3_LIBRARY="$PYTHON_LIB"
-          #   echo "DEBUG: PYTHON_ROOT_DIR set to: $PYTHON_ROOT_DIR"
-          #   echo "DEBUG: Python3_INCLUDE_DIR set to: $Python3_INCLUDE_DIR"
-          #   echo "DEBUG: Python3_LIBRARY set to: $Python3_LIBRARY"
-          #   true
-
           # Crucial: Directly pass Python include and library paths to CMake
           # These variables ($PYTHON_INCLUDE_DIR, $PYTHON_LIB) are provided by cibuildwheel
           # and point to the Python environment cibuildwheel sets up for the build.
@@ -83,14 +64,19 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          # Using a specific Python version for building the sdist
+          # This is the environment where the 'build' tool will run.
+          python-version: '3.10' 
 
       - name: Set up environment
         run: |
+          # Install the 'scikit-build-core' and 'build' packages
+          # 'build' is used to create the source distribution.
           python -m pip install scikit-build-core build
 
       - name: Build and check sdist
         run: |
+          # Create the source distribution
           python -m build --sdist
 
       - name: Upload artifact
@@ -102,17 +88,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [build-wheel, build-sdist]
+    # This condition ensures deployment only happens on version tags or manual workflow dispatch.
+    # It prevents accidental deployments from other triggers like pull requests.
     if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
     environment: deployment
     permissions:
-      id-token: write
+      id-token: write # Required for OIDC authentication with PyPI
 
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
+          # Merge all downloaded artifacts (wheels and sdist) into a single 'dist' directory.
           merge-multiple: true
           path: dist
 
       - name: Publish package to PyPI
+        # This action uses OIDC authentication by default when 'id-token: write' permission is granted.
         uses: pypa/gh-action-pypi-publish@v1.12.3
