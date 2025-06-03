@@ -33,6 +33,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install dependencies with uv
+        run: uv pip install pytest
+
       - name: Install the project
         run: uv sync --all-extras --dev
   
