@@ -35,15 +35,11 @@ jobs:
         env:
           # This is an excellent way to pass CMake arguments directly!
           CIBW_CMAKE_OPTIONS: >
-            -DPython_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"   # Changed from _DIRS to _DIR
-            -DPython_LIBRARY="$PYTHON_LIB"               # Changed from _LIBRARIES to _LIBRARY
-            -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"  # Changed from _DIRS to _DIR
-            -DPython3_LIBRARY="$PYTHON_LIB"              # Changed from _LIBRARIES to _LIBRARY
-            -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
             -DPython_EXECUTABLE="$PYTHON_BIN"
             -DPython3_EXECUTABLE="$PYTHON_BIN"
             -DPython_FIND_STRATEGY=LOCATION
+            # Retain LOCATION strategy to hint CMake to look near the executable
+            # and NEVEr for registry (Windows specific, but harmless)
             -DPython_FIND_REGISTRY=NEVER
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
