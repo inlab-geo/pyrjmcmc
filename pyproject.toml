@@ -14,4 +14,4 @@ dev = [
 ]
 
 [tool.cibuildwheel.linux]
-before-build = "yum update -y && yum install -y python3-devel swig"
+before-build = "yum update -y && yum install -y swig"
