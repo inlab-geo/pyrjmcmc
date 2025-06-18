@@ -24,7 +24,22 @@ if (CMAKE_CXX_COMPILER_ID MATCHES Clang)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common}")
 endif ()
 
-find_package(Python REQUIRED COMPONENTS Interpreter Development)
+# --- MODIFIED SECTION ---
+# This is line 27. Remove explicit COMPONENTS to be less strict.
+find_package(Python REQUIRED)
+
+# Add debugging messages to see what Python was found
+if(NOT Python_FOUND)
+    message(FATAL_ERROR "CMake could not find Python. This should not happen with CIBW_CMAKE_OPTIONS correctly set.")
+else()
+    message(STATUS "Python Found (by CMake): YES")
+    message(STATUS "  Python Executable: ${Python_EXECUTABLE}")
+    message(STATUS "  Python Include Dirs: ${Python_INCLUDE_DIRS}")
+    message(STATUS "  Python Libraries: ${Python_LIBRARIES}")
+    message(STATUS "  Python Version: ${Python_VERSION}")
+endif()
+# --- END MODIFIED SECTION ---
+
 find_package(SWIG REQUIRED)
 
 include(UseSWIG)
