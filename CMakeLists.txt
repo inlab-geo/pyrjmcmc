@@ -27,6 +27,20 @@ endif ()
 # --- MODIFIED SECTION ---
 # This is line 27. Remove explicit COMPONENTS to be less strict.
 find_package(Python REQUIRED)
+# --- NEW ADDITION BELOW THIS LINE ---
+# Manually ensure Python_INCLUDE_DIRS and Python_LIBRARIES are set
+# using the values passed from CIBW_CMAKE_OPTIONS (which become cache variables).
+# Assuming you pass -DPython_INCLUDE_DIR and -DPython_LIBRARY (singular) in CIBW_CMAKE_OPTIONS.
+if (DEFINED Python_INCLUDE_DIR AND NOT "${Python_INCLUDE_DIR}" STREQUAL "")
+    set(Python_INCLUDE_DIRS "${Python_INCLUDE_DIR}")
+    message(STATUS "Manually set Python_INCLUDE_DIRS from cache: ${Python_INCLUDE_DIRS}")
+endif()
+
+if (DEFINED Python_LIBRARY AND NOT "${Python_LIBRARY}" STREQUAL "")
+    set(Python_LIBRARIES "${Python_LIBRARY}")
+    message(STATUS "Manually set Python_LIBRARIES from cache: ${Python_LIBRARIES}")
+endif()
+# --- NEW ADDITION ABOVE THIS LINE ---
 
 # Add debugging messages to see what Python was found
 if(NOT Python_FOUND)
