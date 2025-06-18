@@ -18,19 +18,21 @@ dev = [
     "pytest>=8.3.4",
 ]
 
-# REMOVE THIS ENTIRE SECTION:
-# [tool.scikit-build]
-# cmake.args = [
-#     "-DPython_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}",
-#     "-DPython_LIBRARIES=$ENV{PYTHON_LIB}",
-#     "-DPython3_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}", # For Python 3 specific FindPython calls
-#     "-DPython3_LIBRARIES=$ENV{PYTHON_LIB}",            # For Python 3 specific FindPython calls
-# ]
-
 
 # --- Linux-specific configuration for cibuildwheel ---
 [tool.cibuildwheel.linux]
 # This command is still necessary to install system-level packages like Python development headers and SWIG.
 before-build = "yum update -y && yum install -y python3-devel swig"
-
+# Add these CMake definitions.
+# These variables directly hint CMake's FindPython module where to look.
+# cibuildwheel sets these environment variables for the current Python interpreter.
+cmake.define = {
+    # Hints to CMake's FindPython/FindPython3 modules
+    PYTHON_EXECUTABLE = "$ENV{PYTHON_DOT_VERSION_EXE}", # e.g., /opt/python/cp39-cp39/bin/python3.9
+    PYTHON_INCLUDE_DIR = "$ENV{PYTHON_INCLUDE_DIR}", # e.g., /opt/python/cp39-cp39/include/python3.9/
+    PYTHON_LIBRARY = "$ENV{PYTHON_LIB}", # e.g., /opt/python/cp39-cp39/lib/libpython3.9.so
+    Python3_EXECUTABLE = "$ENV{PYTHON_DOT_VERSION_EXE}",
+    Python3_INCLUDE_DIR = "$ENV{PYTHON_INCLUDE_DIR}",
+    Python3_LIBRARY = "$ENV{PYTHON_LIB}",
+}
 # If you have macOS or Windows configurations, they would go here too.
