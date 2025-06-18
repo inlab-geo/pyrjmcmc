@@ -1,5 +1,12 @@
+# pyproject.toml
+
 [build-system]
-requires = ["scikit-build-core[rich,pyproject]", "cmake>=3.15", "ninja"] # Added cmake and ninja
+# scikit-build-core will inject cmake and ninja, so you don't strictly need them here,
+# but keeping them doesn't hurt and explicitly states requirements.
+# The warning from scikit-build-core is harmless if they are present.
+# Also, remove the '[rich,pyproject]' extra if you don't specifically need it for build-system itself.
+# Often just "scikit-build-core>=0.11.0" is sufficient.
+requires = ["scikit-build-core>=0.11.0", "cmake>=3.15", "ninja"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -11,17 +18,19 @@ dev = [
     "pytest>=8.3.4",
 ]
 
-# Add this new section for scikit-build-core configuration
-[tool.scikit-build]
-# Pass direct CMake arguments to help FindPython
-# These use environment variables that cibuildwheel sets up for each Python version.
-cmake.args = [
-    "-DPython_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}",
-    "-DPython_LIBRARIES=$ENV{PYTHON_LIB}",
-    "-DPython3_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}", # For Python 3 specific FindPython calls
-    "-DPython3_LIBRARIES=$ENV{PYTHON_LIB}",            # For Python 3 specific FindPython calls
-]
+# REMOVE THIS ENTIRE SECTION:
+# [tool.scikit-build]
+# cmake.args = [
+#     "-DPython_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}",
+#     "-DPython_LIBRARIES=$ENV{PYTHON_LIB}",
+#     "-DPython3_INCLUDE_DIRS=$ENV{PYTHON_INCLUDE_DIR}", # For Python 3 specific FindPython calls
+#     "-DPython3_LIBRARIES=$ENV{PYTHON_LIB}",            # For Python 3 specific FindPython calls
+# ]
+
 
 # --- Linux-specific configuration for cibuildwheel ---
 [tool.cibuildwheel.linux]
+# This command is still necessary to install system-level packages like Python development headers and SWIG.
 before-build = "yum update -y && yum install -y python3-devel swig"
+
+# If you have macOS or Windows configurations, they would go here too.
