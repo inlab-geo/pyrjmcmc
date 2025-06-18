@@ -15,13 +15,3 @@ dev = [
 
 [tool.cibuildwheel.linux]
 before-build = "yum update -y && yum install -y python3-devel swig"
-
-cmake.define = {
-    PYTHON_EXECUTABLE = "$ENV{PYTHON_DOT_VERSION_EXE}",
-    PYTHON_INCLUDE_DIR = "$ENV{PYTHON_INCLUDE_DIR}",
-    PYTHON_LIBRARY = "$ENV{PYTHON_LIB}",
-    Python3_EXECUTABLE = "$ENV{PYTHON_DOT_VERSION_EXE}",
-    Python3_INCLUDE_DIR = "$ENV{PYTHON_INCLUDE_DIR}",
-    Python3_LIBRARY = "$ENV{PYTHON_LIB}"
-}
-
