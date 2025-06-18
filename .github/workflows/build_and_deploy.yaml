@@ -36,9 +36,11 @@ jobs:
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
-          # Define before-build directly in the YAML for debugging.
-          # This overrides the pyproject.toml's before-build for the current run.
-          before-build: |
+          # REMOVED: before-build: ... from here. It's not a direct input to the action.
+        env:
+          # CIBW_BEFORE_BUILD is the correct environment variable for this.
+          # This will override the 'before-build' in pyproject.toml for debugging.
+          CIBW_BEFORE_BUILD: |
             echo "--- Debugging Python Paths (inside manylinux container) ---"
             echo "PYTHON_BIN: $PYTHON_BIN"
             echo "PYTHON_INCLUDE_DIR: $PYTHON_INCLUDE_DIR"
@@ -46,7 +48,6 @@ jobs:
             
             echo ""
             echo "Listing contents of Python include directory:"
-            # List contents of the directory, showing all files, even hidden ones.
             ls -al "$PYTHON_INCLUDE_DIR" || true
             echo ""
             echo "Attempting to find Python.h:"
@@ -54,7 +55,6 @@ jobs:
 
             echo ""
             echo "Listing contents of Python library directory:"
-            # List contents of the directory where PYTHON_LIB points, and its parent
             ls -al "$(dirname "$PYTHON_LIB")" || true
             echo ""
             echo "Attempting to find libpython*.so or libpython*.a:"
@@ -63,20 +63,15 @@ jobs:
             
             echo "--- End Debugging ---"
             
-            # Re-add your original yum install swig from pyproject.toml here
-            # since this 'before-build' overrides it for debugging.
+            # Keep your yum install swig here. This ensures SWIG is installed
+            # even when this CIBW_BEFORE_BUILD environment variable is active.
             yum update -y && yum install -y swig
 
-        env:
           CIBW_CMAKE_OPTIONS: >
             -DPython_EXECUTABLE="$PYTHON_BIN"
             -DPython3_EXECUTABLE="$PYTHON_BIN"
             -DPython_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
             -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-            # Explicitly point to the library file.
-            # Make sure $PYTHON_LIB is the full path to the .so/.a file.
-            # If $PYTHON_LIB is just the directory, you might need to append the filename.
-            # cibuildwheel's $PYTHON_LIB usually points to the file itself.
             -DPython_LIBRARY="$PYTHON_LIB"
             -DPython3_LIBRARY="$PYTHON_LIB"
             -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
