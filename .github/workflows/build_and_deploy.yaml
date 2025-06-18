@@ -1,125 +1,99 @@
-name: Build and Deploy
+cmake_minimum_required(VERSION 3.15)
+project(pyrjmcmc) # Project name can match the top-level directory
 
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - 'v*.*.*'
+# Needed for original C code to compile
+# Consider making these target-specific instead of global if possible for better CMake practice.
+SET(CMAKE_C_FLAGS "-Wno-incompatible-pointer-types")
+SET(CMAKE_CXX_FLAGS "-Wno-incompatible-pointer-types")
 
-jobs:
-  build-wheel:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: ["ubuntu-latest", "macos-latest"]
-      fail-fast: false
-    
-    steps:
-      - uses: actions/checkout@v4
+# Add proper -fPIC and MINGW handling
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if (NOT MINGW)
+        set(common "-fPIC")
+    else()
+        set(common "-D_hypot=hypot -Doff64_t=_off64_t")
+        if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+            set(common "${common} -DMS_WIN64")
+        endif()
+    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${common}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common}")
+endif ()
 
-      # --- Conditional SWIG Setup ---
-      - name: Setup SWIG (macOS using Homebrew)
-        if: runner.os == 'macOS' # This step only runs on macOS runners
-        run: |
-          brew update
-          brew install swig
-          swig -version # Verify installation
-          
-      - name: Setup SWIG (Other OS - using action)
-        if: runner.os != 'macOS' # This step runs on non-macOS runners (e.g., Linux)
-        uses: mmomtchev/setup-swig@v4
-        with:
-          branch: jse # Or whatever branch/version is appropriate for other OS
+if (CMAKE_CXX_COMPILER_ID MATCHES Clang)
+    set(common "-fPIC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${common}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common}")
+endif ()
 
-      - name: Verify SWIG (General Check)
-        # This step will run on both OS, verifying SWIG regardless of how it was installed.
-        run: swig -version
-      # --- End Conditional SWIG Setup ---
+# --- Python Finding (as discussed, updated to Python3 and manual overrides) ---
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-      - name: Verify SWIG
-        run: swig -version
-      
-      # Removed: actions/setup-python@v5 - cibuildwheel manages its own Python environments for builds.
-      # The runner will have a default Python sufficient to execute cibuildwheel.
+# Manually ensure Python3_INCLUDE_DIRS and Python3_LIBRARIES are set
+# using the values passed from CIBW_CMAKE_OPTIONS (which become cache variables).
+# Assumes -DPython_INCLUDE_DIR and -DPython_LIBRARY are passed to CMake.
+if (DEFINED Python_INCLUDE_DIR AND NOT "${Python_INCLUDE_DIR}" STREQUAL "")
+    set(Python3_INCLUDE_DIRS "${Python_INCLUDE_DIR}")
+    message(STATUS "Manually set Python3_INCLUDE_DIRS from cache: ${Python3_INCLUDE_DIRS}")
+endif()
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22
-        with:
-          output-dir: wheelhouse
-        env:
-          # This is an excellent way to pass CMake arguments directly!
-          CIBW_CMAKE_OPTIONS: >
-            -DPython_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"   # Changed from _DIRS to _DIR
-            -DPython_LIBRARY="$PYTHON_LIB"               # Changed from _LIBRARIES to _LIBRARY
-            -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"  # Changed from _DIRS to _DIR
-            -DPython3_LIBRARY="$PYTHON_LIB"              # Changed from _LIBRARIES to _LIBRARY
-            -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            -DPython_EXECUTABLE="$PYTHON_BIN"
-            -DPython3_EXECUTABLE="$PYTHON_BIN"
-            -DPython_FIND_STRATEGY=LOCATION
-            -DPython_FIND_REGISTRY=NEVER
+if (DEFINED Python_LIBRARY AND NOT "${Python_LIBRARY}" STREQUAL "")
+    set(Python3_LIBRARIES "${Python_LIBRARY}")
+    message(STATUS "Manually set Python3_LIBRARIES from cache: ${Python3_LIBRARIES}")
+endif()
 
-          CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
-          
-          MACOSX_DEPLOYMENT_TARGET: 14
+# Add debugging messages to see what Python was found
+if(NOT Python3_FOUND)
+    message(FATAL_ERROR "CMake could not find Python3. This should not happen with CIBW_CMAKE_OPTIONS correctly set.")
+else()
+    message(STATUS "Python3 Found (by CMake): YES")
+    message(STATUS "  Python3 Executable: ${Python3_EXECUTABLE}")
+    message(STATUS "  Python3 Include Dirs: ${Python3_INCLUDE_DIRS}")
+    message(STATUS "  Python3 Libraries: ${Python3_LIBRARIES}")
+    message(STATUS "  Python3 Version: ${Python3_VERSION}")
+endif()
+# --- End Python Finding ---
 
-      - name: Upload wheels as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.os }}-wheelhouse
-          path: wheelhouse
+find_package(SWIG REQUIRED)
 
-  build-sdist:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+include(UseSWIG)
 
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          # Using a specific Python version for building the sdist
-          # This is the environment where the 'build' tool will run.
-          python-version: '3.10' 
+# Define the name of your Python module
+set(SWIG_MODULE_NAME rjmcmc)
 
-      - name: Set up environment
-        run: |
-          # Install the 'scikit-build-core' and 'build' packages
-          # 'build' is used to create the source distribution.
-          python -m pip install scikit-build-core build
+# Specify the C source files (including the helper)
+# Note: At this point, the helper source file was assumed to be universal,
+# no macOS specific branching for it yet.
+set(RJMCMC_HELPER_SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig/rjmcmc_helper.c)
+file(GLOB RJMCMC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/src/*.c
+    ${RJMCMC_HELPER_SOURCE_FILE}
+)
 
-      - name: Build and check sdist
-        run: |
-          # Create the source distribution
-          python -m build --sdist
+# Specify the SWIG interface file in the python/swig directory
+set(SWIG_INTERFACE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig/rjmcmc.i)
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          path: dist/*.tar.gz
-          name: sourcedist
+# Generate the wrapper code using SWIG
+SWIG_ADD_LIBRARY(${SWIG_MODULE_NAME} LANGUAGE python SOURCES ${SWIG_INTERFACE_FILE} ${RJMCMC_SOURCES})
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [build-wheel, build-sdist]
-    # This condition ensures deployment only happens on version tags or manual workflow dispatch.
-    # It prevents accidental deployments from other triggers like pull requests.
-    if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
-    environment: deployment
-    permissions:
-      id-token: write # Required for OIDC authentication with PyPI
+# Include directories for your C headers and Python headers
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig
+    ${Python3_INCLUDE_DIRS} # Using Python3_INCLUDE_DIRS
+)
 
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          # Merge all downloaded artifacts (wheels and sdist) into a single 'dist' directory.
-          merge-multiple: true
-          path: dist
+# Link the generated wrapper with your C library and Python libraries
+target_link_libraries(${SWIG_MODULE_NAME} ${Python3_LIBRARIES}) # Using Python3_LIBRARIES
 
-      - name: Publish package to PyPI
-        # This action uses OIDC authentication by default when 'id-token: write' permission is granted.
-        uses: pypa/gh-action-pypi-publish@v1.12.3
+# Install the Python module (the compiled extension) DIRECTLY into site-packages
+install(TARGETS ${SWIG_MODULE_NAME}
+    LIBRARY DESTINATION .)
+
+# Install the __init__.py file into the pyrjmcmc subdirectory of site-packages
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/__init__.py
+    DESTINATION pyrjmcmc)
+
+# Install the SWIG-generated Python wrapper file into the pyrjmcmc subdirectory of site-packages
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/rjmcmc/python/swig/rjmcmc.py
+    DESTINATION pyrjmcmc)
