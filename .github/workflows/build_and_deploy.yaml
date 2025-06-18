@@ -36,48 +36,52 @@ jobs:
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
-          # REMOVED: before-build: ... from here. It's not a direct input to the action.
+          # This 'before-build' hook will now write and execute a script
+          # to ensure environment variables are accessed correctly.
+          before-build: |
+            # Write diagnostic script to a temporary file
+            echo '#!/bin/bash' > /tmp/debug_python_paths.sh
+            echo 'set -euo pipefail' >> /tmp/debug_python_paths.sh # Exit on error, unset vars
+            echo 'echo "--- Debugging Python Paths (inside manylinux container) ---"' >> /tmp/debug_python_paths.sh
+            echo 'echo "PYTHON_BIN: ${PYTHON_BIN}"' >> /tmp/debug_python_paths.sh
+            echo 'echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"' >> /tmp/debug_python_paths.sh
+            echo 'echo "PYTHON_LIB: ${PYTHON_LIB}"' >> /tmp/debug_python_paths.sh
+            echo 'echo ""' >> /tmp/debug_python_paths.sh
+            echo 'echo "Listing contents of Python include directory:"' >> /tmp/debug_python_paths.sh
+            echo 'ls -al "${PYTHON_INCLUDE_DIR}" || true' >> /tmp/debug_python_paths.sh
+            echo 'echo ""' >> /tmp/debug_python_paths.sh
+            echo 'echo "Attempting to find Python.h:"' >> /tmp/debug_python_paths.sh
+            echo 'find "${PYTHON_INCLUDE_DIR}" -name "Python.h" || true' >> /tmp/debug_python_paths.sh
+            echo 'echo ""' >> /tmp/debug_python_paths.sh
+            echo 'echo "Listing contents of Python library directory:"' >> /tmp/debug_python_paths.sh
+            echo 'ls -al "$(dirname "${PYTHON_LIB}")" || true' >> /tmp/debug_python_paths.sh
+            echo 'echo ""' >> /tmp/debug_python_paths.sh
+            echo 'echo "Attempting to find libpython*.so or libpython*.a:"' >> /tmp/debug_python_paths.sh
+            echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.so" || true' >> /tmp/debug_python_paths.sh
+            echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.a" || true' >> /tmp/debug_python_paths.sh
+            echo 'echo "--- End Debugging ---"' >> /tmp/debug_python_paths.sh
+            echo '/usr/bin/yum update -y && /usr/bin/yum install -y swig' >> /tmp/debug_python_paths.sh
+            
+            # Make the script executable and run it
+            chmod +x /tmp/debug_python_paths.sh
+            /tmp/debug_python_paths.sh
+
         env:
-          # CIBW_BEFORE_BUILD is the correct environment variable for this.
-          # This will override the 'before-build' in pyproject.toml for debugging.
-          CIBW_BEFORE_BUILD: |
-            echo "--- Debugging Python Paths (inside manylinux container) ---"
-            echo "PYTHON_BIN: $PYTHON_BIN"
-            echo "PYTHON_INCLUDE_DIR: $PYTHON_INCLUDE_DIR"
-            echo "PYTHON_LIB: $PYTHON_LIB"
-            
-            echo ""
-            echo "Listing contents of Python include directory:"
-            ls -al "$PYTHON_INCLUDE_DIR" || true
-            echo ""
-            echo "Attempting to find Python.h:"
-            find "$PYTHON_INCLUDE_DIR" -name "Python.h" || true
-
-            echo ""
-            echo "Listing contents of Python library directory:"
-            ls -al "$(dirname "$PYTHON_LIB")" || true
-            echo ""
-            echo "Attempting to find libpython*.so or libpython*.a:"
-            find "$(dirname "$PYTHON_LIB")" -name "libpython*.so" || true
-            find "$(dirname "$PYTHON_LIB")" -name "libpython*.a" || true
-            
-            echo "--- End Debugging ---"
-            
-            # Keep your yum install swig here. This ensures SWIG is installed
-            # even when this CIBW_BEFORE_BUILD environment variable is active.
-            yum update -y && yum install -y swig
-
           CIBW_CMAKE_OPTIONS: >
-            -DPython_EXECUTABLE="$PYTHON_BIN"
-            -DPython3_EXECUTABLE="$PYTHON_BIN"
-            -DPython_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-            -DPython3_INCLUDE_DIR="$PYTHON_INCLUDE_DIR"
-            -DPython_LIBRARY="$PYTHON_LIB"
-            -DPython3_LIBRARY="$PYTHON_LIB"
+            # Keep these explicit CMake options as they were.
+            # If the PYTHON_* variables are correctly populated now,
+            # these should help CMake find everything.
+            -DPython_EXECUTABLE="${PYTHON_BIN}"
+            -DPython3_EXECUTABLE="${PYTHON_BIN}"
+            -DPython_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
+            -DPython3_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
+            -DPython_LIBRARY="${PYTHON_LIB}"
+            -DPython3_LIBRARY="${PYTHON_LIB}"
             -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
             -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
             -DPython_FIND_STRATEGY=LOCATION
             -DPython_FIND_REGISTRY=NEVER
+            -DPython_FIND_FRAMEWORK=NEVER # Good practice for manylinux
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           MACOSX_DEPLOYMENT_TARGET: 14
