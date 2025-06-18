@@ -17,10 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SWIG
+      # --- Conditional SWIG Setup ---
+      - name: Setup SWIG (macOS using Homebrew)
+        if: runner.os == 'macOS' # This step only runs on macOS runners
+        run: |
+          brew update
+          brew install swig
+          swig -version # Verify installation
+          
+      - name: Setup SWIG (Other OS - using action)
+        if: runner.os != 'macOS' # This step runs on non-macOS runners (e.g., Linux)
         uses: mmomtchev/setup-swig@v4
         with:
-          branch: jse
+          branch: jse # Or whatever branch/version is appropriate for other OS
+
+      - name: Verify SWIG (General Check)
+        # This step will run on both OS, verifying SWIG regardless of how it was installed.
+        run: swig -version
+      # --- End Conditional SWIG Setup ---
 
       - name: Verify SWIG
         run: swig -version
