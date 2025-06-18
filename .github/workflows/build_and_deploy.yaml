@@ -17,12 +17,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SWIG
+      # Conditional SWIG setup for Linux runners
+      - name: Setup SWIG (Linux)
+        if: runner.os == 'Linux'
         uses: mmomtchev/setup-swig@v4
         with:
           branch: jse
 
+      # Setup SWIG for macOS runners using Homebrew
+      - name: Setup SWIG (macOS)
+        if: runner.os == 'macOS'
+        run: brew install swig
+
       - name: Verify SWIG
+        # This will run on both OSes after the respective setup step
         run: swig -version
       
       # Removed: actions/setup-python@v5 - cibuildwheel manages its own Python environments for builds.
@@ -32,14 +40,15 @@ jobs:
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
+          # 'before-build' is now defined in pyproject.toml, so no need to repeat it here.
+          # cibuildwheel will automatically pick it up from [tool.cibuildwheel.linux]
         env:
           # This is an excellent way to pass CMake arguments directly!
+          # Simplification: Let CMake's FindPython module infer paths from the executable.
           CIBW_CMAKE_OPTIONS: >
             -DPython_EXECUTABLE="$PYTHON_BIN"
             -DPython3_EXECUTABLE="$PYTHON_BIN"
             -DPython_FIND_STRATEGY=LOCATION
-            # Retain LOCATION strategy to hint CMake to look near the executable
-            # and NEVEr for registry (Windows specific, but harmless)
             -DPython_FIND_REGISTRY=NEVER
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
@@ -82,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
-          name: sourcedist
+          name: sourcedist # Corrected name and path
 
   deploy:
     runs-on: ubuntu-latest
