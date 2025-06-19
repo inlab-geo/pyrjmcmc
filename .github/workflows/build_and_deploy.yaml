@@ -41,31 +41,12 @@ jobs:
           # NOT as direct inputs under 'with:'.
 
         env:
-          # IMPORTANT: The `|` after CIBW_BEFORE_BUILD is crucial for multi-line scripts.
+          # Simplified before_build: only install necessary packages
           CIBW_BEFORE_BUILD: |
             set -euo pipefail # Exit on error, unset vars
-
-            echo "--- Debugging Python Paths (inside manylinux container) ---"
-            echo "PYTHON_BIN: ${PYTHON_BIN}"
-            echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-            echo "PYTHON_LIB: ${PYTHON_LIB}"
-            echo ""
-            echo "Listing contents of Python include directory:"
-            ls -al "${PYTHON_INCLUDE_DIR}" || true
-            echo ""
-            echo "Attempting to find Python.h:"
-            find "${PYTHON_INCLUDE_DIR}" -name "Python.h" || true
-            echo ""
-            echo "Listing contents of Python library directory:"
-            ls -al "$(dirname "${PYTHON_LIB}")" || true
-            echo ""
-            echo "Attempting to find libpython*.so or libpython*.a:"
-            find "$(dirname "${PYTHON_LIB}")" -name "libpython*.so" || true
-            find "$(dirname "${PYTHON_LIB}")" -name "libpython*.a" || true
-            echo "--- End Debugging ---"
-
-            # Install SWIG and Python development headers
+            echo "Installing build dependencies: swig and python3-devel..."
             /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
+            echo "Build dependencies installed."
 
           CIBW_CMAKE_OPTIONS: >
             -DPython_EXECUTABLE="${PYTHON_BIN}"
