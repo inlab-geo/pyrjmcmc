@@ -41,34 +41,31 @@ jobs:
           # NOT as direct inputs under 'with:'.
 
         env:
+          # IMPORTANT: The `|` after CIBW_BEFORE_BUILD is crucial for multi-line scripts.
           CIBW_BEFORE_BUILD: |
-            # Write diagnostic script to a temporary file, escaping variables
-            echo '#!/bin/bash' > /tmp/debug_python_paths.sh
-            echo 'set -euo pipefail' >> /tmp/debug_python_paths.sh # Exit on error, unset vars
-            echo 'echo "--- Debugging Python Paths (inside manylinux container) ---"' >> /tmp/debug_python_paths.sh
-            echo 'echo "PYTHON_BIN: ${PYTHON_BIN}"' >> /tmp/debug_python_paths.sh
-            echo 'echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"' >> /tmp/debug_python_paths.sh
-            echo 'echo "PYTHON_LIB: ${PYTHON_LIB}"' >> /tmp/debug_python_paths.sh
-            echo 'echo ""' >> /tmp/debug_python_paths.sh
-            echo 'echo "Listing contents of Python include directory:"' >> /tmp/debug_python_paths.sh
-            echo 'ls -al "${PYTHON_INCLUDE_DIR}" || true' >> /tmp/debug_python_paths.sh
-            echo 'echo ""' >> /tmp/debug_python_paths.sh
-            echo 'echo "Attempting to find Python.h:"' >> /tmp/debug_python_paths.sh
-            echo 'find "${PYTHON_INCLUDE_DIR}" -name "Python.h" || true' >> /tmp/debug_python_paths.sh
-            echo 'echo ""' >> /tmp/debug_python_paths.sh
-            echo 'echo "Listing contents of Python library directory:"' >> /tmp/debug_python_paths.sh
-            echo 'ls -al "$(dirname "${PYTHON_LIB}")" || true' >> /tmp/debug_python_paths.sh
-            echo 'echo ""' >> /tmp/debug_python_paths.sh
-            echo 'echo "Attempting to find libpython*.so or libpython*.a:"' >> /tmp/debug_python_paths.sh
-            echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.so" || true' >> /tmp/debug_python_paths.sh
-            echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.a" || true' >> /tmp/debug_python_paths.sh
-            echo 'echo "--- End Debugging ---"' >> /tmp/debug_python_paths.sh
+            set -euo pipefail # Exit on error, unset vars
+
+            echo "--- Debugging Python Paths (inside manylinux container) ---"
+            echo "PYTHON_BIN: ${PYTHON_BIN}"
+            echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
+            echo "PYTHON_LIB: ${PYTHON_LIB}"
+            echo ""
+            echo "Listing contents of Python include directory:"
+            ls -al "${PYTHON_INCLUDE_DIR}" || true
+            echo ""
+            echo "Attempting to find Python.h:"
+            find "${PYTHON_INCLUDE_DIR}" -name "Python.h" || true
+            echo ""
+            echo "Listing contents of Python library directory:"
+            ls -al "$(dirname "${PYTHON_LIB}")" || true
+            echo ""
+            echo "Attempting to find libpython*.so or libpython*.a:"
+            find "$(dirname "${PYTHON_LIB}")" -name "libpython*.so" || true
+            find "$(dirname "${PYTHON_LIB}")" -name "libpython*.a" || true
+            echo "--- End Debugging ---"
+
             # Install SWIG and Python development headers
-            echo '/usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel' >> /tmp/debug_python_paths.sh
-            
-            # Make the script executable and run it
-            chmod +x /tmp/debug_python_paths.sh
-            /tmp/debug_python_paths.sh
+            /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
 
           CIBW_CMAKE_OPTIONS: >
             -DPython_EXECUTABLE="${PYTHON_BIN}"
