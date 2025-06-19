@@ -32,22 +32,21 @@ jobs:
       - name: Verify SWIG
         run: swig -version
       
-      - name: Build wheels
+      # --- Conditional cibuildwheel step for Linux builds ---
+      - name: Build wheels (Linux)
+        if: runner.os == 'Linux'
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
-          # The 'before-build' hook and CIBW_CMAKE_OPTIONS must be
-          # passed as environment variables to the cibuildwheel action.
-          # NOT as direct inputs under 'with:'.
-
         env:
-          # Simplified before_build: only install necessary packages
+          # This 'before_build' hook is specific to Linux to install dev packages
           CIBW_BEFORE_BUILD: |
             set -euo pipefail # Exit on error, unset vars
-            echo "Installing build dependencies: swig and python3-devel..."
+            echo "Installing build dependencies for Linux: swig and python3-devel..."
             /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
             echo "Build dependencies installed."
-
+          
+          # These CMake options are specific to Linux to help find Python
           CIBW_CMAKE_OPTIONS: >
             -DPython_EXECUTABLE="${PYTHON_BIN}"
             -DPython3_EXECUTABLE="${PYTHON_BIN}"
@@ -60,7 +59,22 @@ jobs:
             -DPython_FIND_STRATEGY=LOCATION
             -DPython_FIND_REGISTRY=NEVER
             -DPython_FIND_FRAMEWORK=NEVER
+            -DPython3_LIBRARIES="${PYTHON_LIB}" # More explicit for CMake's Python3_LIBRARIES
+            -DPython3_FIND_DEBUG=ON # Crucial for debugging FindPython3 issues
 
+          CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
+          # MACOSX_DEPLOYMENT_TARGET is generally for macOS, but harmless if present
+          MACOSX_DEPLOYMENT_TARGET: 14 
+
+      # --- Conditional cibuildwheel step for macOS builds ---
+      - name: Build wheels (macOS)
+        if: runner.os == 'macOS'
+        uses: pypa/cibuildwheel@v2.22
+        with:
+          output-dir: wheelhouse
+        env:
+          # Only include env vars needed for macOS here.
+          # If macOS builds are fine, you might not need CIBW_BEFORE_BUILD or CIBW_CMAKE_OPTIONS.
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           MACOSX_DEPLOYMENT_TARGET: 14
 
