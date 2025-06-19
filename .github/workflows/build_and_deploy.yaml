@@ -39,31 +39,32 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
-          # This 'before_build' hook is specific to Linux to install dev packages
           CIBW_BEFORE_BUILD: |
             set -euo pipefail # Exit on error, unset vars
             echo "Installing build dependencies for Linux: swig and python3-devel..."
             /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
             echo "Build dependencies installed."
           
-          # These CMake options are specific to Linux to help find Python
+          # NEW: Moved CMake-specific Python finding variables to direct environment
+          # CIBW_CMAKE_OPTIONS will only contain other, non-Python-finding flags if needed
           CIBW_CMAKE_OPTIONS: >
-            -DPython_EXECUTABLE="${PYTHON_BIN}"
-            -DPython3_EXECUTABLE="${PYTHON_BIN}"
-            -DPython_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
-            -DPython3_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
-            -DPython_LIBRARY="${PYTHON_LIB}"
-            -DPython3_LIBRARY="${PYTHON_LIB}"
-            -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            -DPython_FIND_STRATEGY=LOCATION
-            -DPython_FIND_REGISTRY=NEVER
-            -DPython_FIND_FRAMEWORK=NEVER
-            -DPython3_LIBRARIES="${PYTHON_LIB}" # More explicit for CMake's Python3_LIBRARIES
-            -DPython3_FIND_DEBUG=ON # Crucial for debugging FindPython3 issues
+            # Keep other CMake options here if you have them, e.g., for project-specific settings
+            # We've moved Python finding to direct env variables
+            
+          # These are now direct environment variables that CMake's FindPython3 module can pick up
+          Python3_ROOT_DIR: "$(dirname "$(dirname "$PYTHON_BIN")")"
+          Python3_FIND_STRATEGY: "LOCATION"
+          Python3_FIND_REGISTRY: "NEVER"
+          Python3_FIND_FRAMEWORK: "NEVER"
+          Python3_DEBUG: "TRUE" # This should activate the debug output!
+
+          # Also, ensure the base PYTHON_BIN, PYTHON_INCLUDE_DIR, PYTHON_LIB are correctly picked up
+          # cibuildwheel sets these automatically, but we ensure they're available for context.
+          PYTHON_BIN: "${PYTHON_BIN}"
+          PYTHON_INCLUDE_DIR: "${PYTHON_INCLUDE_DIR}"
+          PYTHON_LIB: "${PYTHON_LIB}"
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
-          # MACOSX_DEPLOYMENT_TARGET is generally for macOS, but harmless if present
           MACOSX_DEPLOYMENT_TARGET: 14 
 
       # --- Conditional cibuildwheel step for macOS builds ---
