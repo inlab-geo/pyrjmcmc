@@ -36,9 +36,12 @@ jobs:
         uses: pypa/cibuildwheel@v2.22
         with:
           output-dir: wheelhouse
-          # This 'before-build' hook will now write and execute a script
-          # to ensure environment variables are accessed correctly.
-          before-build: |
+          # The 'before-build' hook and CIBW_CMAKE_OPTIONS must be
+          # passed as environment variables to the cibuildwheel action.
+          # NOT as direct inputs under 'with:'.
+
+        env: # <--- This is the crucial change for CIBW_BEFORE_BUILD and CIBW_CMAKE_OPTIONS
+          CIBW_BEFORE_BUILD: |
             # Write diagnostic script to a temporary file
             echo '#!/bin/bash' > /tmp/debug_python_paths.sh
             echo 'set -euo pipefail' >> /tmp/debug_python_paths.sh # Exit on error, unset vars
@@ -66,11 +69,7 @@ jobs:
             chmod +x /tmp/debug_python_paths.sh
             /tmp/debug_python_paths.sh
 
-        env:
           CIBW_CMAKE_OPTIONS: >
-            # Keep these explicit CMake options as they were.
-            # If the PYTHON_* variables are correctly populated now,
-            # these should help CMake find everything.
             -DPython_EXECUTABLE="${PYTHON_BIN}"
             -DPython3_EXECUTABLE="${PYTHON_BIN}"
             -DPython_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
@@ -81,7 +80,7 @@ jobs:
             -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
             -DPython_FIND_STRATEGY=LOCATION
             -DPython_FIND_REGISTRY=NEVER
-            -DPython_FIND_FRAMEWORK=NEVER # Good practice for manylinux
+            -DPython_FIND_FRAMEWORK=NEVER
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           MACOSX_DEPLOYMENT_TARGET: 14
