@@ -40,7 +40,7 @@ jobs:
           # passed as environment variables to the cibuildwheel action.
           # NOT as direct inputs under 'with:'.
 
-        env: # <--- This is the crucial change for CIBW_BEFORE_BUILD and CIBW_CMAKE_OPTIONS
+        env:
           CIBW_BEFORE_BUILD: |
             # Write diagnostic script to a temporary file
             echo '#!/bin/bash' > /tmp/debug_python_paths.sh
@@ -63,7 +63,8 @@ jobs:
             echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.so" || true' >> /tmp/debug_python_paths.sh
             echo 'find "$(dirname "${PYTHON_LIB}")" -name "libpython*.a" || true' >> /tmp/debug_python_paths.sh
             echo 'echo "--- End Debugging ---"' >> /tmp/debug_python_paths.sh
-            echo '/usr/bin/yum update -y && /usr/bin/yum install -y swig' >> /tmp/debug_python_paths.sh
+            # Install SWIG and Python development headers
+            echo '/usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel' >> /tmp/debug_python_paths.sh
             
             # Make the script executable and run it
             chmod +x /tmp/debug_python_paths.sh
