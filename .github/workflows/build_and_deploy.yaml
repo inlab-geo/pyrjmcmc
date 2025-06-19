@@ -39,29 +39,29 @@ jobs:
         with:
           output-dir: wheelhouse
         env:
+          # Simplified CIBW_BEFORE_BUILD: only system-level package installation
           CIBW_BEFORE_BUILD: |
             set -euo pipefail # Exit on error, unset vars
-            
             echo "Installing build dependencies for Linux: swig and python3-devel..."
             /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
             echo "Build dependencies installed."
-
-            # IMPORTANT: Export these environment variables so CMake sees them
-            echo "Setting CMake Python finding environment variables..."
-            export Python3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
-            export Python3_FIND_STRATEGY="LOCATION"
-            export Python3_FIND_REGISTRY="NEVER"
-            export Python3_FIND_FRAMEWORK="NEVER"
-            export Python3_DEBUG="TRUE" # This will make FindPython3 verbose
-            # Also explicitly ensure these are exported, though cibuildwheel usually does
-            export PYTHON_BIN="${PYTHON_BIN}"
-            export PYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
-            export PYTHON_LIB="${PYTHON_LIB}"
-            echo "CMake Python environment variables set."
           
-          # CIBW_CMAKE_OPTIONS can be empty now, or contain other project-specific CMake flags
-          # The Python-finding related flags are now handled by direct environment variables
-          CIBW_CMAKE_OPTIONS: "" 
+          # IMPORTANT: CMake options for Python finding must be here,
+          # as cibuildwheel handles the ${PYTHON_*} variable expansion before passing to CMake.
+          CIBW_CMAKE_OPTIONS: >
+            -DPython_EXECUTABLE="${PYTHON_BIN}"
+            -DPython3_EXECUTABLE="${PYTHON_BIN}"
+            -DPython_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
+            -DPython3_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
+            -DPython_LIBRARY="${PYTHON_LIB}"
+            -DPython3_LIBRARY="${PYTHON_LIB}"
+            -DPython_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            -DPython3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            -DPython_FIND_STRATEGY=LOCATION
+            -DPython_FIND_REGISTRY=NEVER
+            -DPython_FIND_FRAMEWORK=NEVER
+            -DPython3_LIBRARIES="${PYTHON_LIB}" # More explicit for CMake's Python3_LIBRARIES
+            -DPython3_FIND_DEBUG=ON # This should now work to give verbose output!
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           MACOSX_DEPLOYMENT_TARGET: 14 
