@@ -42,7 +42,7 @@ jobs:
 
         env:
           CIBW_BEFORE_BUILD: |
-            # Write diagnostic script to a temporary file
+            # Write diagnostic script to a temporary file, escaping variables
             echo '#!/bin/bash' > /tmp/debug_python_paths.sh
             echo 'set -euo pipefail' >> /tmp/debug_python_paths.sh # Exit on error, unset vars
             echo 'echo "--- Debugging Python Paths (inside manylinux container) ---"' >> /tmp/debug_python_paths.sh
