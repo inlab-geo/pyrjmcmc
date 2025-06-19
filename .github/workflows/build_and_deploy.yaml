@@ -41,28 +41,27 @@ jobs:
         env:
           CIBW_BEFORE_BUILD: |
             set -euo pipefail # Exit on error, unset vars
+            
             echo "Installing build dependencies for Linux: swig and python3-devel..."
             /usr/bin/yum update -y && /usr/bin/yum install -y swig python3-devel
             echo "Build dependencies installed."
-          
-          # NEW: Moved CMake-specific Python finding variables to direct environment
-          # CIBW_CMAKE_OPTIONS will only contain other, non-Python-finding flags if needed
-          CIBW_CMAKE_OPTIONS: >
-            # Keep other CMake options here if you have them, e.g., for project-specific settings
-            # We've moved Python finding to direct env variables
-            
-          # These are now direct environment variables that CMake's FindPython3 module can pick up
-          Python3_ROOT_DIR: "$(dirname "$(dirname "$PYTHON_BIN")")"
-          Python3_FIND_STRATEGY: "LOCATION"
-          Python3_FIND_REGISTRY: "NEVER"
-          Python3_FIND_FRAMEWORK: "NEVER"
-          Python3_DEBUG: "TRUE" # This should activate the debug output!
 
-          # Also, ensure the base PYTHON_BIN, PYTHON_INCLUDE_DIR, PYTHON_LIB are correctly picked up
-          # cibuildwheel sets these automatically, but we ensure they're available for context.
-          PYTHON_BIN: "${PYTHON_BIN}"
-          PYTHON_INCLUDE_DIR: "${PYTHON_INCLUDE_DIR}"
-          PYTHON_LIB: "${PYTHON_LIB}"
+            # IMPORTANT: Export these environment variables so CMake sees them
+            echo "Setting CMake Python finding environment variables..."
+            export Python3_ROOT_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+            export Python3_FIND_STRATEGY="LOCATION"
+            export Python3_FIND_REGISTRY="NEVER"
+            export Python3_FIND_FRAMEWORK="NEVER"
+            export Python3_DEBUG="TRUE" # This will make FindPython3 verbose
+            # Also explicitly ensure these are exported, though cibuildwheel usually does
+            export PYTHON_BIN="${PYTHON_BIN}"
+            export PYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR}"
+            export PYTHON_LIB="${PYTHON_LIB}"
+            echo "CMake Python environment variables set."
+          
+          # CIBW_CMAKE_OPTIONS can be empty now, or contain other project-specific CMake flags
+          # The Python-finding related flags are now handled by direct environment variables
+          CIBW_CMAKE_OPTIONS: "" 
 
           CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
           MACOSX_DEPLOYMENT_TARGET: 14 
